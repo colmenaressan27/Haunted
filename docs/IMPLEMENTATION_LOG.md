@@ -133,3 +133,39 @@ Igualar en iPhone la línea base de la demo oficial (sin encogerse, deslizamient
   3. Superficies blandas, plegadas o con textura repetitiva funcionan mal.
 - Pendiente para la entrega: un vídeo corto del cubo estable en el suelo o la mesa (entregable del hito según la guía) y el modelo exacto de ambos teléfonos.
 - Siguiente: commit y etiqueta `v0.1-tracking`, y después el Hito 1.
+
+---
+
+## 2026-11-09 — Hito 1a: calibración + Evidencia 1 (fotografía manipulable)
+
+### Logrado (verificado en PC; NO PROBADO en teléfono)
+- **Arquitectura por capas** (ver `TECHNICAL_DESIGN.md`):
+  - `src/game` puro y testeado.
+  - `src/presentation` con Three.js.
+  - `EighthWallAdapter` reducido al motor, que delega en un `SpatialController`.
+  - `ExpedienteController` y `AnchorTestController`. La prueba del cubo pasa a «Herramientas de QA».
+- **Calibración en 4 pasos:** suelo → zona segura (1–2 pasos) → mesa (opcional; plano robusto de 5 hit-tests y altura validada 0,25–1,3 u) → umbral (0,8–4 u y a más de 1 u de la zona segura). Mensajes de rechazo específicos, «Atrás», «No tengo mesa» y un `RoomLayout` solo de sesión (sin persistencia ni envío).
+- **Evidencia 1:** fotografía generada por código (arte provisional y original). Aparece sobre la mesa, o en el suelo entre la zona segura y el umbral.
+  - Se puede tocar para cogerla, examinarla (arrastrar para girar, acercar, «Dar la vuelta» con subtítulo accesible del reverso), soltarla en la mesa o el suelo según la retícula, y recuperarla sin caminar.
+  - El estado `backSeen` registra que se vio la inscripción.
+- **Recuperación:** la pérdida de tracking o un salto de pose atenúa marcas y foto y lanza la pregunta. «Se movió» → recalibración; la foto pasa a la mano, nunca se pierde. «Recentrar» desaparece del expediente porque invalidaría las zonas.
+- **Detector de saltos de pose:** más de 0,25 u en un fotograma, con 1,5 s de enfriamiento. Se registra cada 5 s el pico de movimiento por fotograma para calibrar el umbral.
+- El chunk inicial sigue sin Three.js (index ~79 kB gzip). La sesión y los controladores van en un chunk diferido.
+
+### Decisiones
+- El umbral es un **marcador orientativo**, no un oclusor: la oclusión calibrada es del Hito 2 y no se presenta como existente.
+- La calibración marca con la retícula central y un botón, no con toques: es más precisa con una sola mano.
+- La foto en la mano y en examen se dibuja encima de todo. En examen, el oscurecido es parcial (72 %) para no perder de vista el entorno real.
+- El modo compatible (sin SLAM) sigue mostrando solo el cubo. Llevar la calibración y la evidencia al fallback queda **pendiente** (requisito de la especificación para móviles sin SLAM).
+
+### Pendiente de hardware (NO PROBADO)
+- Tabla «Hito 1a» de `QA_DEVICE_MATRIX.md`, en especial:
+  - que la foto quede **apoyada** sobre la mesa;
+  - el toque para cogerla a 1–1,5 m;
+  - la legibilidad del reverso;
+  - la ausencia de falsos `SALTO` con movimientos lentos.
+- Si XRExtras.Loading tapa el paso «Suelo» al arrancar.
+
+### Siguiente
+- QA real del Hito 1a.
+- Hito 1b: primer sonido espacial (Web Audio, `PannerNode`), foto levitando y modo compatible con evidencia.

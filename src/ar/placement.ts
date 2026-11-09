@@ -2,11 +2,7 @@
 // Hallazgo QA 2026-11-09: un único FEATURE_POINT en iPhone produce deslizamiento y cambios de
 // escala aparentes; el plano de suelo del motor (como el ejemplo oficial) se comporta mejor.
 
-export interface Vec3 {
-  x: number
-  y: number
-  z: number
-}
+export {distance, intersectHorizontalPlane, type Vec3} from '../game/geometry'
 
 /** Más allá de esta distancia la profundidad estimada es poco fiable: se rechaza la colocación. */
 export const MAX_PLACEMENT_DISTANCE = 2.5
@@ -47,18 +43,6 @@ export function estimatePlaneHeight(ys: readonly number[]): PlaneEstimate | null
   if (inliers.length < PLANE_MIN_INLIERS) return null
   const y = inliers.reduce((s, v) => s + v, 0) / inliers.length
   return {y, inliers: inliers.length, spread: Math.max(...inliers) - Math.min(...inliers)}
-}
-
-/** Intersección de un rayo con el plano horizontal y = planeY. null si es paralelo o queda detrás. */
-export function intersectHorizontalPlane(origin: Vec3, direction: Vec3, planeY: number): Vec3 | null {
-  if (Math.abs(direction.y) < 1e-6) return null
-  const t = (planeY - origin.y) / direction.y
-  if (t <= 0) return null
-  return {x: origin.x + direction.x * t, y: planeY, z: origin.z + direction.z * t}
-}
-
-export function distance(a: Vec3, b: Vec3): number {
-  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
 }
 
 export type PlacementRejection = 'no-surface' | 'too-far' | 'no-consensus'

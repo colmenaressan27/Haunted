@@ -6,6 +6,8 @@ export type ReticleState = 'none' | 'surface' | 'too-far'
 
 export type PlacementMethod = 'ground-plane' | 'hit-test' | 'surface-plane'
 
+export type AnchorCheckReason = 'recovered' | 'jump'
+
 export interface PlacementInfo {
   method: PlacementMethod
   hitType: string | null
@@ -25,8 +27,11 @@ export interface ArSnapshot {
   /** Distancia cámara→objeto en unidades de escena (≈metros solo si la escala inicial es correcta). */
   distanceToObject: number | null
   engineVersion: string | null
-  /** Tras recuperar el tracking con un objeto colocado: preguntar si sigue en su sitio. */
-  anchorCheck: boolean
+  /**
+   * Preguntar si el contenido anclado sigue en su sitio: tras recuperar el tracking ('recovered')
+   * o tras una corrección silenciosa de pose ('jump'). null = no preguntar.
+   */
+  anchorCheck: AnchorCheckReason | null
   /** Mensaje breve para el jugador (p. ej. colocación rechazada). Se borra solo. */
   notice: string | null
   log: LogEntry[]
@@ -41,7 +46,7 @@ export const initialArSnapshot: ArSnapshot = {
   placement: null,
   distanceToObject: null,
   engineVersion: null,
-  anchorCheck: false,
+  anchorCheck: null,
   notice: null,
   log: [],
 }

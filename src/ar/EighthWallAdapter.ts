@@ -1,4 +1,5 @@
-// Adaptador SLAM real con 8th Wall Engine Binary 1.0.0 + Three.js.
+// Adaptador SLAM real con 8th Wall Engine Binary 1.0.0 + Three.js. Solo motor: cámara, tracking,
+// entrada, rendimiento y saltos de pose. El contenido lo gestiona un SpatialController.
 // API usada (https://8thwall.org/docs/api/engine, 2026-11-09):
 //   XR8.addCameraPipelineModules, XR8.run, XR8.stop, XR8.clearCameraPipelineModules, XR8.version
 //   XR8.GlTextureRenderer.pipelineModule, XR8.Threejs.pipelineModule/xrScene
@@ -6,8 +7,10 @@
 //   Evento 'reality.trackingstatus' {status, reason}; hook onCameraStatusChange {status}.
 //   CoachingOverlay.pipelineModule() (escala absoluta), eventos 'coaching-overlay.show'/'hide'.
 import * as THREE from 'three'
-import {describeArOptions, type ArOptions} from './arOptions'
-import type {ArStore, PlacementMethod, ReticleState} from './arStore'
+import {PoseJumpDetector} from '../game/poseJump'
+import {addLights} from '../presentation/sceneUtils'
+import {describeArOptions, type ArOptions, type PlacementStrategy} from './arOptions'
+import type {ArStore} from './arStore'
 import {formatFpsSummary, summarizeFps} from './fpsStats'
 import type {IARAdapter} from './IARAdapter'
 import {
@@ -16,32 +19,22 @@ import {
   intersectHorizontalPlane,
   MAX_PLACEMENT_DISTANCE,
   PLANE_SAMPLE_OFFSETS,
-  placementRejectionMessage,
-  type PlacementRejection,
 } from './placement'
-import {addTestLights, createReticle, createTestCube, disposeObject, setObjectDimmed} from './testObject'
+import type {ScreenRay, SpatialController, SpatialHost, SurfaceResult} from './SpatialController'
 import {shouldAskAnchorCheck} from './trackingState'
 
 /**
  * Altura inicial de la cámara en unidades de escena. Con scale 'responsive' el suelo es y=0 y la
  * cámara arranca a esta altura, así que 1 unidad ≈ 1 m SOLO si el teléfono está a ~1,4 m del suelo.
- * Con scale 'absolute' el motor estima la altura real y la y de este origen se ignora.
+ * QA 2026-11-09: el «suelo» es la superficie hacia la que se apunta al iniciar (una mesa cuenta).
  */
 const CAMERA_START_HEIGHT = 1.4
 const XR8_LOAD_TIMEOUT_MS = 20_000
-const RETICLE_INTERVAL_MS = 150
 const STATS_INTERVAL_MS = 500
 const FPS_LOG_EVERY_SAMPLES = 10 // 10 × 500 ms = cada 5 s
 const NOTICE_MS = 3000
 const TAP_MAX_MOVE_PX = 12
 const TAP_MAX_MS = 500
-
-const RETICLE_OK = 0xd8ac6b
-const RETICLE_FAR = 0xa92b36
-
-type SurfaceResult =
-  | {ok: true; point: THREE.Vector3; method: PlacementMethod; hitType: string | null; detail: string}
-  | {ok: false; reason: PlacementRejection; distance?: number}
 
 function waitForXr8(timeoutMs: number): Promise<Xr8> {
   return new Promise((resolve, reject) => {
@@ -76,26 +69,33 @@ function errorMessage(err: unknown): string {
   }
 }
 
+interface PointerTrack {
+  startX: number
+  startY: number
+  lastX: number
+  lastY: number
+  t: number
+  dragging: boolean
+}
+
 export class EighthWallAdapter implements IARAdapter {
   readonly mode = 'slam' as const
   readonly capabilities = {spatialAnchoring: true, recenter: true}
 
   private xr8: Xr8 | null = null
-  private scene: THREE.Scene | null = null
   private camera: THREE.Camera | null = null
-  private cube: THREE.Group | null = null
-  private reticle: THREE.Mesh | null = null
   private readonly invProjection = new THREE.Matrix4()
-  private placements = 0
-  private lastReticleAt = 0
+  private readonly poseJumps = new PoseJumpDetector()
   private lastStatsAt = 0
   private framesSinceStats = 0
   private fpsWindow: number[] = []
   private fpsSession: number[] = []
+  private poseJumpCount = 0
   private startedAt = 0
   private noticeTimer = 0
-  private pointerDown: {x: number; y: number; t: number} | null = null
+  private pointer: PointerTrack | null = null
   private running = false
+  private attached = false
   /** shutdown() pedido: cualquier await pendiente de initialize() debe abortar. */
   private disposed = false
 
@@ -103,11 +103,12 @@ export class EighthWallAdapter implements IARAdapter {
     private readonly canvas: HTMLCanvasElement,
     private readonly store: ArStore,
     private readonly options: ArOptions,
+    private readonly controller: SpatialController,
   ) {}
 
   async initialize(): Promise<void> {
     this.store.dispatch({type: 'START', mode: 'slam'})
-    this.store.log(`SLAM: variante ${describeArOptions(this.options)}`)
+    this.store.log(`SLAM: sesión «${this.controller.name}» · ${describeArOptions(this.options)}`)
     this.store.log('SLAM: esperando motor 8th Wall…')
 
     let xr8: Xr8
@@ -157,14 +158,8 @@ export class EighthWallAdapter implements IARAdapter {
   recenter(): void {
     if (!this.xr8 || !this.running) return
     this.xr8.XrController.recenter()
+    this.poseJumps.reset() // el salto de origen es intencional, no una corrección silenciosa
     this.store.log('SLAM: recentrado (el origen vuelve a la posición actual)')
-  }
-
-  /** Retira el objeto colocado para que el jugador lo vuelva a colocar (recuperación tras pérdida). */
-  clearPlacedObject(): void {
-    if (this.cube) this.cube.visible = false
-    this.store.patch({placement: null, distanceToObject: null, anchorCheck: false})
-    this.store.log('Ancla: retirada para recolocar')
   }
 
   shutdown(): void {
@@ -176,10 +171,13 @@ export class EighthWallAdapter implements IARAdapter {
       const secs = ((performance.now() - this.startedAt) / 1000).toFixed(0)
       const losses = this.store.getSnapshot().tracking.lossCount
       this.store.log(
-        `RESUMEN: ${describeArOptions(this.options)} · ${secs} s · ${formatFpsSummary(summarizeFps(this.fpsSession))}` +
-          ` · pérdidas ${losses} · colocaciones ${this.placements}`,
+        `RESUMEN: ${this.controller.name} · ${describeArOptions(this.options)} · ${secs} s · ` +
+          `${formatFpsSummary(summarizeFps(this.fpsSession))} · pérdidas ${losses} · saltos ${this.poseJumpCount}` +
+          ` · ${this.controller.summary()}`,
       )
     }
+    if (this.attached) this.controller.detach()
+    this.attached = false
     if (this.xr8 && this.running) {
       try {
         this.xr8.stop()
@@ -188,20 +186,7 @@ export class EighthWallAdapter implements IARAdapter {
         this.store.log(`SLAM: error al detener: ${errorMessage(err)}`)
       }
     }
-    if (this.scene) {
-      if (this.cube) {
-        this.scene.remove(this.cube)
-        disposeObject(this.cube)
-      }
-      if (this.reticle) {
-        this.scene.remove(this.reticle)
-        disposeObject(this.reticle)
-      }
-    }
     this.running = false
-    this.cube = null
-    this.reticle = null
-    this.scene = null
     this.camera = null
     this.canvas.hidden = true
     this.store.dispatch({type: 'STOPPED'})
@@ -210,7 +195,7 @@ export class EighthWallAdapter implements IARAdapter {
       reticle: 'none',
       placement: null,
       distanceToObject: null,
-      anchorCheck: false,
+      anchorCheck: null,
       notice: null,
     })
     this.store.log('SLAM: sesión detenida, cámara liberada')
@@ -228,25 +213,37 @@ export class EighthWallAdapter implements IARAdapter {
     this.noticeTimer = window.setTimeout(() => this.store.patch({notice: null}), NOTICE_MS)
   }
 
+  private createHost(scene: THREE.Scene, camera: THREE.Camera): SpatialHost {
+    return {
+      scene,
+      camera,
+      rayFromScreen: (nx, ny) => this.rayFromScreen(nx, ny),
+      findSurface: (nx, ny, strategy, maxDistance) => this.findSurface(nx, ny, strategy, maxDistance),
+      log: (msg) => this.store.log(msg),
+      notify: (msg) => this.notify(msg),
+    }
+  }
+
   private createSceneModule(xr8: Xr8): Xr8PipelineModule {
     return {
-      name: 'haunted-hito0',
+      name: 'haunted-session',
       onStart: ({canvas}) => {
         const {scene, camera} = xr8.Threejs.xrScene()
-        this.scene = scene
         this.camera = camera
-
-        addTestLights(scene)
-        this.reticle = createReticle()
-        scene.add(this.reticle)
+        addLights(scene)
 
         camera.position.set(0, CAMERA_START_HEIGHT, 0)
         xr8.XrController.updateCameraProjectionMatrix({origin: camera.position, facing: camera.quaternion})
 
         canvas.addEventListener('touchmove', preventDefault, {passive: false})
         canvas.addEventListener('pointerdown', this.onPointerDown)
+        canvas.addEventListener('pointermove', this.onPointerMove)
         canvas.addEventListener('pointerup', this.onPointerUp)
-        this.store.log('SLAM: escena lista. Apunta al suelo y toca para colocar el cubo.')
+        canvas.addEventListener('pointercancel', this.onPointerCancel)
+
+        this.controller.attach(this.createHost(scene, camera))
+        this.attached = true
+        this.store.log('SLAM: escena lista')
       },
       onCameraStatusChange: ({status}) => {
         this.store.log(`Cámara: ${status}`)
@@ -270,7 +267,10 @@ export class EighthWallAdapter implements IARAdapter {
             this.onTrackingStatus(detail.status, reason)
           },
         },
-        {event: 'coaching-overlay.show', process: () => this.store.log('Escala absoluta: guía visible (mueve el teléfono adelante y atrás)')},
+        {
+          event: 'coaching-overlay.show',
+          process: () => this.store.log('Escala absoluta: guía visible (mueve el teléfono adelante y atrás)'),
+        },
         {event: 'coaching-overlay.hide', process: () => this.store.log('Escala absoluta: escala estimada, guía oculta')},
       ],
     }
@@ -280,11 +280,11 @@ export class EighthWallAdapter implements IARAdapter {
     const prev = this.store.getSnapshot().tracking
     this.store.dispatch({type: 'ENGINE_STATUS', status, reason})
     const next = this.store.getSnapshot().tracking
-    const hasObject = this.cube?.visible === true
-    if (this.cube) setObjectDimmed(this.cube, next.quality !== 'normal')
-    if (shouldAskAnchorCheck(prev, next, hasObject)) {
-      this.store.patch({anchorCheck: true})
-      this.store.log('Ancla: tracking recuperado tras una pérdida, preguntando si el cubo sigue en su sitio')
+    if (prev.quality !== next.quality) this.poseJumps.reset()
+    if (this.attached) this.controller.onTrackingChange(prev, next)
+    if (this.attached && shouldAskAnchorCheck(prev, next, this.controller.hasPlacedContent())) {
+      this.store.patch({anchorCheck: 'recovered'})
+      this.store.log('Ancla: tracking recuperado tras una pérdida, preguntando si el contenido sigue en su sitio')
     }
   }
 
@@ -292,9 +292,9 @@ export class EighthWallAdapter implements IARAdapter {
     const now = performance.now()
     this.framesSinceStats++
 
-    if (now - this.lastReticleAt >= RETICLE_INTERVAL_MS) {
-      this.lastReticleAt = now
-      this.updateReticle()
+    if (this.camera && this.attached) {
+      this.detectPoseJump(now)
+      this.controller.onFrame(now)
     }
 
     if (now - this.lastStatsAt >= STATS_INTERVAL_MS) {
@@ -303,9 +303,21 @@ export class EighthWallAdapter implements IARAdapter {
       this.lastStatsAt = now
       this.framesSinceStats = 0
       if (fps !== null) this.recordFps(fps)
-      const dist =
-        this.cube?.visible && this.camera ? Number(this.camera.position.distanceTo(this.cube.position).toFixed(2)) : null
-      this.store.patch({fps, distanceToObject: dist})
+      this.store.patch({fps})
+    }
+  }
+
+  private detectPoseJump(now: number): void {
+    if (!this.camera || this.store.getSnapshot().tracking.quality !== 'normal') return
+    const {x, y, z} = this.camera.position
+    const result = this.poseJumps.update({x, y, z}, now)
+    if (!result.jump) return
+    this.poseJumpCount++
+    this.store.log(`SALTO de pose: ${result.delta.toFixed(2)} u en un fotograma sin aviso del motor`)
+    if (this.controller.hasPlacedContent()) {
+      this.controller.onPoseJump(result.delta)
+      this.store.patch({anchorCheck: 'jump'})
+      this.store.log('Ancla: preguntando si el contenido sigue en su sitio tras el salto')
     }
   }
 
@@ -313,7 +325,10 @@ export class EighthWallAdapter implements IARAdapter {
     this.fpsWindow.push(fps)
     this.fpsSession.push(fps)
     if (this.fpsWindow.length >= FPS_LOG_EVERY_SAMPLES) {
-      this.store.log(`Rendimiento 5 s: ${formatFpsSummary(summarizeFps(this.fpsWindow))}`)
+      const peak = this.poseJumps.takePeak()
+      this.store.log(
+        `Rendimiento 5 s: ${formatFpsSummary(summarizeFps(this.fpsWindow))} · pico mov. ${peak.toFixed(3)} u/fotograma`,
+      )
       this.fpsWindow = []
     }
   }
@@ -322,8 +337,9 @@ export class EighthWallAdapter implements IARAdapter {
    * Rayo desde la cámara a través de un punto de pantalla. Se calcula a mano desde projectionMatrix
    * y matrixWorld (no con Raycaster.setFromCamera) porque XR8 escribe la proyección directamente y
    * no está documentado que mantenga projectionMatrixInverse ni el tipo PerspectiveCamera.
+   * Validado en iPhone (QA Hito 0.1): el suelo estimado coloca donde apunta la retícula.
    */
-  private rayFromScreen(nx: number, ny: number): {origin: THREE.Vector3; direction: THREE.Vector3} | null {
+  private rayFromScreen(nx: number, ny: number): ScreenRay | null {
     const cam = this.camera
     if (!cam) return null
     cam.updateMatrixWorld()
@@ -336,15 +352,19 @@ export class EighthWallAdapter implements IARAdapter {
     return Number.isFinite(direction.x) ? {origin, direction} : null
   }
 
-  /** Busca la superficie bajo un punto normalizado de pantalla según la estrategia configurada. */
-  private findSurface(nx: number, ny: number): SurfaceResult {
+  /** Busca la superficie bajo un punto normalizado de pantalla según la estrategia indicada. */
+  private findSurface(
+    nx: number,
+    ny: number,
+    strategy: PlacementStrategy,
+    maxDistance: number = MAX_PLACEMENT_DISTANCE,
+  ): SurfaceResult {
     if (!this.xr8 || !this.camera) return {ok: false, reason: 'no-surface'}
-    const cameraPos = this.camera.position
     let result: SurfaceResult
 
-    switch (this.options.placement) {
+    switch (strategy) {
       case 'ground':
-        result = this.groundPlaneSurface(nx, ny, 0, 'ground-plane', 'plano y=0')
+        result = this.planeSurface(nx, ny, 0, 'ground-plane', 'plano y=0')
         break
       case 'hit': {
         const hits = this.xr8.XrController.hitTest(nx, ny, ['FEATURE_POINT'])
@@ -370,7 +390,7 @@ export class EighthWallAdapter implements IARAdapter {
         }
         const plane = estimatePlaneHeight(ys)
         result = plane
-          ? this.groundPlaneSurface(
+          ? this.planeSurface(
               nx,
               ny,
               plane.y,
@@ -383,17 +403,17 @@ export class EighthWallAdapter implements IARAdapter {
     }
 
     if (result.ok) {
-      const d = distance(result.point, cameraPos)
-      if (d > MAX_PLACEMENT_DISTANCE) return {ok: false, reason: 'too-far', distance: d}
+      const d = distance(result.point, this.camera.position)
+      if (d > maxDistance) return {ok: false, reason: 'too-far', distance: d}
     }
     return result
   }
 
-  private groundPlaneSurface(
+  private planeSurface(
     nx: number,
     ny: number,
     planeY: number,
-    method: PlacementMethod,
+    method: 'ground-plane' | 'surface-plane',
     detail: string,
   ): SurfaceResult {
     const ray = this.rayFromScreen(nx, ny)
@@ -403,75 +423,42 @@ export class EighthWallAdapter implements IARAdapter {
       : {ok: false, reason: 'no-surface'}
   }
 
-  private updateReticle(): void {
-    if (!this.reticle) return
-    const surface = this.findSurface(0.5, 0.5)
-    let state: ReticleState = 'none'
-    const mat = this.reticle.material as THREE.MeshBasicMaterial
-    if (surface.ok) {
-      state = 'surface'
-      this.reticle.position.copy(surface.point)
-      mat.color.setHex(RETICLE_OK)
-    } else if (surface.reason === 'too-far') {
-      // Se muestra en rojo sobre el suelo para que se entienda por qué no se puede colocar.
-      const ray = this.rayFromScreen(0.5, 0.5)
-      const p = ray ? intersectHorizontalPlane(ray.origin, ray.direction, 0) : null
-      if (p) this.reticle.position.set(p.x, p.y, p.z)
-      mat.color.setHex(RETICLE_FAR)
-      state = 'too-far'
-    }
-    this.reticle.visible = state !== 'none'
-    this.store.patch({reticle: state})
+  private normalized(e: PointerEvent): [number, number] {
+    const rect = this.canvas.getBoundingClientRect()
+    return [(e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height]
   }
 
   private readonly onPointerDown = (e: PointerEvent): void => {
-    this.pointerDown = {x: e.clientX, y: e.clientY, t: performance.now()}
+    this.pointer = {startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, t: performance.now(), dragging: false}
+  }
+
+  private readonly onPointerMove = (e: PointerEvent): void => {
+    const p = this.pointer
+    if (!p) return
+    if (!p.dragging && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > TAP_MAX_MOVE_PX) p.dragging = true
+    if (p.dragging && this.attached) this.controller.onDrag(e.clientX - p.lastX, e.clientY - p.lastY)
+    p.lastX = e.clientX
+    p.lastY = e.clientY
   }
 
   private readonly onPointerUp = (e: PointerEvent): void => {
-    const down = this.pointerDown
-    this.pointerDown = null
-    if (!down) return
-    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y)
-    if (moved > TAP_MAX_MOVE_PX || performance.now() - down.t > TAP_MAX_MS) return
-    const rect = this.canvas.getBoundingClientRect()
-    this.placeAt((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height)
+    const p = this.pointer
+    this.pointer = null
+    if (!p || p.dragging || performance.now() - p.t > TAP_MAX_MS || !this.attached) return
+    const [nx, ny] = this.normalized(e)
+    this.controller.onTap(nx, ny)
   }
 
-  private placeAt(nx: number, ny: number): void {
-    if (!this.scene) return
-    const surface = this.findSurface(nx, ny)
-    if (!surface.ok) {
-      const msg = placementRejectionMessage(surface.reason, surface.distance)
-      this.notify(msg)
-      this.store.log(`Colocar rechazado: ${surface.reason}${surface.distance ? ` ${surface.distance.toFixed(2)} u` : ''}`)
-      return
-    }
-    if (!this.cube) {
-      this.cube = createTestCube(this.options.cubeSize)
-      this.scene.add(this.cube)
-    }
-    this.cube.visible = true
-    this.cube.position.copy(surface.point)
-    setObjectDimmed(this.cube, this.store.getSnapshot().tracking.quality !== 'normal')
-    this.placements++
-    this.store.patch({
-      placement: {method: surface.method, hitType: surface.hitType, count: this.placements},
-      anchorCheck: false,
-      notice: null,
-    })
-    const p = surface.point
-    const d = this.camera ? distance(p, this.camera.position) : NaN
-    this.store.log(
-      `Colocar #${this.placements}: ${surface.method}${surface.hitType ? ` (${surface.hitType})` : ''} · ${surface.detail}` +
-        ` · (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}) · a ${d.toFixed(2)} u`,
-    )
+  private readonly onPointerCancel = (): void => {
+    this.pointer = null
   }
 
   private detachInput(): void {
     this.canvas.removeEventListener('touchmove', preventDefault)
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
+    this.canvas.removeEventListener('pointermove', this.onPointerMove)
     this.canvas.removeEventListener('pointerup', this.onPointerUp)
+    this.canvas.removeEventListener('pointercancel', this.onPointerCancel)
   }
 }
 

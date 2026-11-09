@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useState, type ReactNode} from 'react'
 import type {PlacementStrategy} from '../../ar/arOptions'
 import type {ArSnapshot, PlacementMethod} from '../../ar/arStore'
 import {copyLogForQa} from '../qaLog'
@@ -14,26 +14,34 @@ interface Props {
   snap: ArSnapshot
   placement: PlacementStrategy
   variantLabel: string
+  /** Qué se pregunta tras una pérdida o un salto: «el cubo» o «las marcas y la foto». */
+  anchorSubject: string
   canRecenter: boolean
   canFallback: boolean
   onRecenter: () => void
+  onRecalibrate?: () => void
   onStop: () => void
   onSwitchToFallback: () => void
   onConfirmAnchor: () => void
   onReplaceAnchor: () => void
+  /** Panel principal de la sesión (expediente). Sin él se muestra la pista genérica. */
+  children?: ReactNode
 }
 
 export function SessionHud({
   snap,
   placement,
   variantLabel,
+  anchorSubject,
   canRecenter,
   canFallback,
   onRecenter,
+  onRecalibrate,
   onStop,
   onSwitchToFallback,
   onConfirmAnchor,
   onReplaceAnchor,
+  children,
 }: Props) {
   const [showLog, setShowLog] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -45,6 +53,52 @@ export function SessionHud({
     const ok = await copyLogForQa(snap.log)
     setCopied(ok)
     if (ok) window.setTimeout(() => setCopied(false), 1500)
+  }
+
+  let center: ReactNode
+  if (failed) {
+    center = (
+      <div className="panel error-panel interactive" role="alert">
+        <h2 className="panel-title">No se pudo iniciar</h2>
+        <p>{tracking.error}</p>
+        <div className="actions">
+          {isSlam && canFallback && (
+            <button type="button" className="btn btn-secondary" onClick={onSwitchToFallback}>
+              Probar modo compatible (sin anclaje)
+            </button>
+          )}
+          <button type="button" className="btn btn-ghost" onClick={onStop}>
+            Volver al inicio
+          </button>
+        </div>
+      </div>
+    )
+  } else if (snap.anchorCheck) {
+    center = (
+      <div className="panel anchor-panel interactive" role="alertdialog" aria-labelledby="anchor-q">
+        <p id="anchor-q" className="panel-title">
+          {snap.anchorCheck === 'jump' ? 'El seguimiento dio un salto.' : 'Se recuperó el seguimiento.'} ¿{anchorSubject}{' '}
+          sigue en su sitio?
+        </p>
+        <div className="actions actions-row">
+          <button type="button" className="btn btn-secondary" onClick={onConfirmAnchor}>
+            Sí, sigue igual
+          </button>
+          <button type="button" className="btn btn-primary" onClick={onReplaceAnchor}>
+            Se movió
+          </button>
+        </div>
+      </div>
+    )
+  } else if (children && tracking.mode === 'slam' && tracking.quality !== 'starting') {
+    center = (
+      <>
+        {snap.notice && <p className="hint">{snap.notice}</p>}
+        {children}
+      </>
+    )
+  } else {
+    center = <p className="hint">{sessionHint(snap, placement)}</p>
   }
 
   return (
@@ -59,38 +113,7 @@ export function SessionHud({
         </p>
       </div>
 
-      {failed ? (
-        <div className="panel error-panel interactive" role="alert">
-          <h2 className="panel-title">No se pudo iniciar</h2>
-          <p>{tracking.error}</p>
-          <div className="actions">
-            {isSlam && canFallback && (
-              <button type="button" className="btn btn-secondary" onClick={onSwitchToFallback}>
-                Probar modo compatible (sin anclaje)
-              </button>
-            )}
-            <button type="button" className="btn btn-ghost" onClick={onStop}>
-              Volver al inicio
-            </button>
-          </div>
-        </div>
-      ) : snap.anchorCheck ? (
-        <div className="panel anchor-panel interactive" role="alertdialog" aria-labelledby="anchor-q">
-          <p id="anchor-q" className="panel-title">
-            Se recuperó el seguimiento. ¿El cubo sigue en su sitio?
-          </p>
-          <div className="actions actions-row">
-            <button type="button" className="btn btn-secondary" onClick={onConfirmAnchor}>
-              Sí, sigue igual
-            </button>
-            <button type="button" className="btn btn-primary" onClick={onReplaceAnchor}>
-              Se movió: recolocar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="hint">{sessionHint(snap, placement)}</p>
-      )}
+      {center}
 
       <div className="hud-bottom interactive">
         <dl className="stats">
@@ -99,18 +122,20 @@ export function SessionHud({
             <dd>{snap.fps ?? '—'}</dd>
           </div>
           {isSlam && (
+            <div>
+              <dt>Pérdidas</dt>
+              <dd>{tracking.lossCount}</dd>
+            </div>
+          )}
+          {isSlam && snap.placement && (
             <>
               <div>
                 <dt>Distancia</dt>
                 <dd>{snap.distanceToObject === null ? '—' : `${snap.distanceToObject} u`}</dd>
               </div>
               <div>
-                <dt>Pérdidas</dt>
-                <dd>{tracking.lossCount}</dd>
-              </div>
-              <div>
                 <dt>Colocado</dt>
-                <dd>{snap.placement ? METHOD_LABELS[snap.placement.method] : '—'}</dd>
+                <dd>{METHOD_LABELS[snap.placement.method]}</dd>
               </div>
             </>
           )}
@@ -120,6 +145,11 @@ export function SessionHud({
           {canRecenter && (
             <button type="button" className="btn btn-small" onClick={onRecenter}>
               Recentrar
+            </button>
+          )}
+          {onRecalibrate && (
+            <button type="button" className="btn btn-small" onClick={onRecalibrate}>
+              Recalibrar
             </button>
           )}
           <button

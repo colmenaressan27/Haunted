@@ -284,6 +284,54 @@ body {
   border-radius: 999px;
 }
 
+.game-panel {
+  align-self: stretch;
+  margin-top: auto;
+}
+
+.game-panel .file-tag {
+  margin-bottom: 4px;
+}
+
+.notice-error {
+  border-left-color: var(--c-hostile);
+  background: rgb(169 43 54 / 0.12);
+  margin-bottom: 8px;
+}
+
+.caption {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgb(238 233 225 / 0.08);
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+.zoom-control {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 0.875rem;
+  color: var(--c-muted);
+}
+
+.zoom-control input[type='range'] {
+  width: 100%;
+  min-height: 44px;
+  accent-color: var(--c-amber);
+}
+
+.chip {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: rgb(216 172 107 / 0.15);
+  color: var(--c-amber);
+}
+
 .anchor-panel {
   align-self: stretch;
   border-color: var(--c-amber);

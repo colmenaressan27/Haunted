@@ -18,7 +18,8 @@ interface Props {
   log: readonly LogEntry[]
   slamNeedsReload: boolean
   onOptionsChange: (options: ArOptions) => void
-  onStartSlam: () => void
+  onStartExpediente: () => void
+  onStartAnchorTest: () => void
   onStartFallback: () => void
   onCredits: () => void
 }
@@ -29,7 +30,8 @@ export function IntroScreen({
   log,
   slamNeedsReload,
   onOptionsChange,
-  onStartSlam,
+  onStartExpediente,
+  onStartAnchorTest,
   onStartFallback,
   onCredits,
 }: Props) {
@@ -45,13 +47,13 @@ export function IntroScreen({
         <p className="subtitle">El Observador</p>
       </header>
 
-      <section className="panel" aria-labelledby="hito0-title">
-        <h2 id="hito0-title" className="panel-title">
-          Prueba técnica · Hito 0
+      <section className="panel" aria-labelledby="hito-title">
+        <h2 id="hito-title" className="panel-title">
+          Versión en desarrollo · Hito 1
         </h2>
         <p>
-          Esto todavía <strong>no es el juego</strong>. Comprueba si este teléfono puede fijar un objeto 3D a tu
-          habitación real.
+          Todavía <strong>no es el juego completo</strong>. Calibra tu habitación en cuatro pasos y examina la
+          primera evidencia.
         </p>
         <ul className="safety">
           <li>Usa un espacio despejado y con luz.</li>
@@ -67,8 +69,13 @@ export function IntroScreen({
       ))}
 
       <div className="actions">
-        <button type="button" className="btn btn-primary" onClick={onStartSlam} disabled={!report.slamCandidate}>
-          {slamNeedsReload ? 'Reiniciar AR (recarga la página)' : 'Iniciar AR · seguimiento real'}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={onStartExpediente}
+          disabled={!report.slamCandidate}
+        >
+          {slamNeedsReload ? 'Reiniciar (recarga la página)' : 'Iniciar expediente'}
         </button>
         {!report.slamCandidate && (
           <p className="notice" role="status">
@@ -100,7 +107,18 @@ export function IntroScreen({
       </div>
 
       <details className="checks variants">
-        <summary>Variante de prueba (QA)</summary>
+        <summary>Herramientas de QA · prueba de anclaje</summary>
+        <p className="fine">
+          Coloca un cubo para medir la deriva del seguimiento en este teléfono (útil antes de abrir el stand).
+        </p>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onStartAnchorTest}
+          disabled={!report.slamCandidate}
+        >
+          {slamNeedsReload ? 'Prueba de anclaje (recarga la página)' : 'Prueba de anclaje (cubo)'}
+        </button>
         <div className="variant-grid">
           <label>
             Colocación

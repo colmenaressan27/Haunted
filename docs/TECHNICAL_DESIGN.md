@@ -36,6 +36,40 @@ src/ui/                  pantallas React (intro, HUD, créditos) y textos
 
 Regla para hitos futuros: `src/game/*` solo depende de `IARAdapter` y `trackingState`, nunca de `window.XR8`.
 
+## Arquitectura (Hito 1a)
+
+```
+src/game/            PURO (sin Three.js ni XR8): portable a C#/Unity, con tests
+  geometry.ts          Vec3, distancias, intersección rayo-plano, giros
+  calibration.ts       pasos suelo → zona segura → mesa (opcional) → umbral; validación; RoomLayout
+  photoObject.ts       ciclo de vida del objeto (hidden/world/held/examining), soltar en mesa o suelo
+  poseJump.ts          detector de correcciones silenciosas de pose
+  evidenceText.ts      textos narrativos de las evidencias
+src/presentation/    Three.js: foto procedural, marcadores de zona, cubo, utilidades
+src/ar/              motor: EighthWallAdapter (solo XR8), FallbackARAdapter, SpatialController (contrato)
+src/app/             orquestación: controladores de sesión, stores, fábrica diferida
+  controllers/ExpedienteController.ts   calibración + Evidencia 1
+  controllers/AnchorTestController.ts   prueba de anclaje (QA del stand)
+src/ui/              React: portada, HUD, panel del expediente
+```
+
+Flujo: `EighthWallAdapter` es dueño de la cámara, el canvas, el tracking y la entrada. Cada fotograma llama a `controller.onFrame` después de que XR8 actualice la cámara. Toques y arrastres van a `onTap`/`onDrag`. Los cambios de tracking y los saltos de pose van a `onTrackingChange`/`onPoseJump`. El controlador aplica los reductores puros de `src/game` y publica su estado en `gameStore`, que React lee con `useSyncExternalStore`.
+
+### Objetos en la mano y en examen
+- No se cuelgan de la cámara de XR8 (no está documentado que esté en el grafo de escena). Cada fotograma se recalcula su pose a partir de `camera.position/quaternion` (`placeRelativeToCamera`).
+- En la mano y en examen se dibujan encima de todo (`depthTest: false`, transparente, `renderOrder` 41). En examen, un plano oscuro al 72 % (`renderOrder` 40) atenúa la cámara sin ocultarla del todo, para que el entorno real siga visible.
+- El toque usa un volumen invisible 1,8 veces mayor que la foto (`material.visible = false`, que sigue siendo raycastable) y el rayo manual de pantalla.
+
+### Recuperación (regla del juego)
+- Hay pérdida de tracking (`LIMITED`) o salto de pose → marcadores y foto del mundo atenuados → se pregunta al jugador.
+- «Sigue igual» → se confirma la posición.
+- «Se movió» → recalibración. La foto, si estaba en el mundo, pasa a la mano: **nunca se pierde**.
+- «Recentrar» no existe en el expediente: movería el origen e invalidaría todas las zonas. Se usa «Recalibrar».
+
+### Detector de saltos de pose
+- Traslación de cámara mayor de 0,25 u entre dos fotogramas consecutivos (≤ 100 ms), con 1,5 s de enfriamiento. Solo se evalúa con tracking `normal` y se reinicia al recentrar o al cambiar de estado.
+- **Umbral provisional:** el registro anota cada 5 s el pico de movimiento por fotograma para calibrarlo con datos reales.
+
 ## Pipeline XR8 usado (API documentada, 2026-11-09)
 
 1. `XR8.XrController.configure({scale: 'responsive', disableWorldTracking: false})`

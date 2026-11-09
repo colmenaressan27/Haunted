@@ -21,4 +21,8 @@ Notas:
 
 | ID | Asset | Fuente | Licencia | Atribución | Uso nativo futuro | Estado |
 |---|---|---|---|---|---|---|
-| — | (ninguno en el Hito 0) | — | — | — | — | El cubo de prueba es geometría generada por código. Fuentes del sistema. |
+| ART-001 | Fotografía de la Evidencia 1 (anverso y reverso), incluida la «marca del Observador» | Generada por código en `src/presentation/photo.ts` (Canvas 2D, PRNG determinista) | Original del proyecto | — | Sí: se puede regenerar o exportar como PNG | **Provisional** (Hito 1). Sustituir por arte final en el Hito 5 |
+| ART-002 | Marcadores de zona y etiquetas | Generados por código (`src/presentation/zoneMarkers.ts`, `sceneUtils.ts`) | Original | — | Sí | Guía de UI, no arte final |
+| — | Cubo de la prueba de anclaje | Geometría generada por código | Original | — | Sí | Herramienta de QA |
+
+Tipografías: fuentes del sistema (sin archivos de fuentes distribuidos).

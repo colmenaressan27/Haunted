@@ -4,7 +4,8 @@
 import * as THREE from 'three'
 import type {ArStore} from './arStore'
 import type {IARAdapter} from './IARAdapter'
-import {addTestLights, createTestCube, disposeObject} from './testObject'
+import {addLights, disposeObject} from '../presentation/sceneUtils'
+import {createTestCube} from '../presentation/testCube'
 
 const STATS_INTERVAL_MS = 500
 
@@ -90,7 +91,7 @@ export class FallbackARAdapter implements IARAdapter {
     this.renderer = renderer
 
     const scene = new THREE.Scene()
-    addTestLights(scene)
+    addLights(scene)
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 50)
     const cube = createTestCube()
     cube.position.set(0, -0.12, -0.8)
@@ -108,10 +109,6 @@ export class FallbackARAdapter implements IARAdapter {
 
   recenter(): void {
     // Sin seguimiento espacial no hay origen que recentrar.
-  }
-
-  clearPlacedObject(): void {
-    // El modo compatible no coloca objetos en el espacio.
   }
 
   shutdown(): void {

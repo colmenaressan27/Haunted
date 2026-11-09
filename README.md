@@ -1,7 +1,7 @@
 # HAUNTED — Expediente 01: El Observador
 
 Teaser WebAR de terror (8–10 min) para iPhone y Android desde una URL HTTPS.
-**Estado actual: Hito 0. Prueba técnica de tracking, todavía no es el juego.**
+**Estado actual: Hito 1a. Calibración de la habitación y primera evidencia manipulable. Todavía no es el juego completo** (sin fantasma, audio ni cacería). El Hito 0 (tracking) está cerrado y su prueba de anclaje se conserva como herramienta de QA.
 
 - Especificación: [docs/HAUNTED_PROMPT_MAESTRO_CLAUDE_CODE.md](docs/HAUNTED_PROMPT_MAESTRO_CLAUDE_CODE.md)
 - Guía de producción: [docs/HAUNTED_GUIA_DE_DESARROLLO.md](docs/HAUNTED_GUIA_DE_DESARROLLO.md)
@@ -52,6 +52,23 @@ Las rutas son relativas (`base: './'`), así que no hace falta configurar el nom
 5. Muévete despacio 30–60 cm alrededor del cubo y **graba un vídeo con el propio teléfono**.
 6. Tapa la cámara 2 s: debe aparecer «limitado» y el contador de pérdidas debe subir. Destápala y anota si el cubo vuelve a su sitio.
 7. Abre **Registro → Copiar registro para QA** y pega el texto en la matriz.
+
+## Hito 1a: protocolo de prueba en el teléfono
+
+De pie, con buena luz y textura en el suelo (no sobre una cama). Muévete siempre despacio.
+
+1. **Iniciar expediente** → acepta los permisos.
+2. **Suelo:** apunta al suelo a 1–2 pasos hasta ver el anillo blanco → «Continuar».
+3. **Zona segura:** apunta a un punto libre del suelo → «Marcar zona segura». Debe aparecer un círculo azul verdoso.
+4. **Mesa:** apunta a la superficie de una mesa (anillo ámbar) → «Marcar mesa». Prueba también «No tengo mesa» en otra partida.
+5. **Umbral:** apunta a la base de una puerta o un mueble alto → «Marcar umbral». Aparece un marco rojo orientativo (no tapa nada todavía: eso es el Hito 2).
+6. Aparece la **fotografía** sobre la mesa (o en el suelo si no hay mesa). Tócala para cogerla.
+7. **Examinar:** arrástrala para girarla, usa «Acercar» y «Dar la vuelta». Lee la inscripción del reverso.
+8. **Cerrar** → apunta a la mesa o al suelo → **Soltar aquí**. Después pulsa **Recuperar fotografía** sin caminar.
+9. **Pérdida:** tapa la cámara 2 s → la foto y las marcas se atenúan → destapa → responde con sinceridad «¿Lo que marcaste sigue en su sitio?». Prueba «Se movió» al menos una vez: debe volver a calibrar y la foto debe quedar en tu mano.
+10. **Detener cámara** → copia el registro desde la portada y anota qué falló.
+
+Qué anotar: ¿la foto queda **sobre** la mesa o flota o se hunde? ¿Se entiende cada paso sin explicación? ¿La foto en la mano estorba? ¿Se lee la inscripción? ¿Aparece algún `SALTO de pose` en el registro y coincidió con un movimiento brusco?
 
 ## Hito 0.1: comparar variantes en el iPhone
 
