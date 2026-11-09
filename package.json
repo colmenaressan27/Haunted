@@ -1,0 +1,47 @@
+{
+  "name": "haunted-webar",
+  "private": true,
+  "version": "0.1.0",
+  "description": "HAUNTED — Expediente 01: El Observador. Teaser WebAR (Hito 0: prueba de tracking).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "vendor": "node scripts/copy-vendor.mjs",
+    "postinstall": "node scripts/copy-vendor.mjs",
+    "predev": "node scripts/copy-vendor.mjs",
+    "dev": "vite",
+    "dev:lan": "node scripts/copy-vendor.mjs && vite --mode lan --host",
+    "prebuild": "node scripts/copy-vendor.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "preview:lan": "vite preview --mode lan --host",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@8thwall/engine-binary": "1.0.0",
+    "@8thwall/xrextras": "1.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "three": "0.183.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.183.1",
+    "@vitejs/plugin-basic-ssl": "2.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.7",
+    "vitest": "5.1.0"
+  }
+}

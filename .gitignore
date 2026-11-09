@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+# Runtime de 8th Wall/XRExtras copiado desde node_modules (scripts/copy-vendor.mjs).
+# Se regenera en npm install / dev / build; no se versiona el binario.
+public/external/
+*.log
+.DS_Store
+.vite/
