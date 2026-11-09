@@ -4,6 +4,8 @@ coverage/
 # Runtime de 8th Wall/XRExtras copiado desde node_modules (scripts/copy-vendor.mjs).
 # Se regenera en npm install / dev / build; no se versiona el binario.
 public/external/
+# Vídeos y capturas de QA: muestran la casa del tester; nunca se suben al repo.
+qa-evidence/
 *.log
 .DS_Store
 .vite/

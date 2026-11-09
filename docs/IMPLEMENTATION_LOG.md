@@ -105,3 +105,31 @@ Igualar en iPhone la línea base de la demo oficial (sin encogerse, deslizamient
 - La variante predeterminada en iPhone se comporta **como la demo oficial o mejor** (sin encogerse; deriva leve) en el mismo sitio.
 - Android sin regresiones.
 - La pregunta de recuperación aparece tras tapar y destapar la cámara.
+
+### QA Hito 0.1 — vídeo `test1` (iPhone, variante B, sobre una cama)
+- Análisis con fotogramas extraídos por ffmpeg: 1 fps del vídeo completo y 5 fps de los últimos 5 s.
+- **Mejora clara.** El cubo se mantiene la mayor parte de la sesión y ya no se encoge de forma progresiva.
+- **Salto final:** justo después de un barrido rápido con desenfoque, la distancia cámara→cubo pasa de 1,79 a 2,62 y luego a 3,27 u, y el cubo aparece lejos y pequeño. **El motor no reportó pérdida**: el estado fue `NORMAL` todo el tiempo y las pérdidas 0. Es una corrección silenciosa de pose que la lógica de recuperación actual (basada en `trackingstatus`) **no detecta**.
+- **Superficie no representativa:** una manta con pliegues de varios cm no es plana. Su textura acanalada repetitiva es mala para los puntos de seguimiento, y se deforma con el peso de quien graba. Además, en escala relativa la cámara a ~0,5 m de la cama hace que 1 u ≈ 0,35 m: el cubo «de 15 cm» mide unos 5 cm reales y el límite de 2,5 u equivale a ~0,9 m.
+- **FPS 12–26 (≈22)** con la grabación de pantalla de iOS activa, que consume GPU. Falta medir sin grabar (línea `RESUMEN`).
+- XRExtras.Loading muestra texto en inglés («Tap 'Allow' to access AR»). P2: sustituirlo por UI propia en español.
+
+### Propuesta derivada (pendiente de aprobación)
+- **Detector de saltos de pose:** una traslación de cámara físicamente implausible entre fotogramas se trataría como pérdida silenciosa (atenuar, preguntar «¿sigue en su sitio?», registrar `SALTO`). Primero, registrar los picos de velocidad para calibrar umbrales con datos reales.
+- Repetir la prueba en el **suelo**, de pie, con superficie de textura no repetitiva y movimientos lentos. Grabar sin pantalla y medir FPS sin grabación.
+
+### QA Hito 0.1 — mesa con objetos, sin grabar pantalla (iPhone, variante B)
+- **Funciona bien**: deslizamiento leve **solo con movimientos bruscos**, lo que coincide con el salto del vídeo `test1`.
+- **Rendimiento:** media de 56 FPS en 126 s. 60 sostenidos hasta ~55 s; luego baja de forma progresiva a 50–51 hacia los 2 min. Posible efecto térmico, a vigilar en sesiones de 10 min. Mínimos puntuales: 5–6 al arrancar y 24 durante la pérdida de 88 s. La grabación de pantalla costaba más de la mitad de los FPS en `test1`.
+- **Recuperación:** pérdida a 88,1 s → NORMAL a 93,4 s → se pregunta por el ancla → el jugador confirma que **siguió en su sitio**. En iPhone el motor relocalizó bien; en Android no (cubo desplazado). La pregunta queda justificada en ambos casos.
+- **Colocación:** las 8 colocaciones quedaron en `y=0` y el jugador las ve **sobre la mesa**. Indica que el «suelo» del modo relativo es la superficie hacia la que se apuntó al iniciar, no necesariamente el suelo de la habitación. Implicación para la calibración del Hito 1: iniciar apuntando al suelo y usar la estrategia `plane` para la mesa.
+- **Anomalía sin diagnosticar:** la cámara pasó tres veces por `requesting → hasStream → hasVideo` entre 2,8 y 5,3 s. Retrasa el arranque unos 2,5 s y provoca un LIMITED inicial. No ocurría en el Hito 0. Se vigila en próximas sesiones antes de investigar.
+
+### Cierre del Hito 0
+- **Puerta PASS en iPhone (Safari 27.2) y Android (Chrome 157)**: el objeto permanece razonablemente anclado con movimientos lentos.
+- Límites conocidos y aceptados:
+  1. Los movimientos bruscos producen correcciones de pose **silenciosas** (sin LIMITED).
+  2. El Android desplaza el contenido tras una pérdida.
+  3. Superficies blandas, plegadas o con textura repetitiva funcionan mal.
+- Pendiente para la entrega: un vídeo corto del cubo estable en el suelo o la mesa (entregable del hito según la guía) y el modelo exacto de ambos teléfonos.
+- Siguiente: commit y etiqueta `v0.1-tracking`, y después el Hito 1.
