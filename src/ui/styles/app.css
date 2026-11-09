@@ -253,6 +253,50 @@ body {
   color: var(--c-hostile);
 }
 
+.variant-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.variant-grid label {
+  display: grid;
+  gap: 4px;
+  color: var(--c-bone);
+}
+
+.variant-grid select {
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--c-slate);
+  background: var(--c-carbon);
+  color: var(--c-bone);
+  font: inherit;
+}
+
+.variant-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--c-muted);
+  background: var(--c-panel);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.anchor-panel {
+  align-self: stretch;
+  border-color: var(--c-amber);
+}
+
+.actions-row {
+  flex-direction: row;
+}
+
+.actions-row .btn {
+  flex: 1;
+}
+
 .fine {
   font-size: 0.8rem;
   color: var(--c-muted);

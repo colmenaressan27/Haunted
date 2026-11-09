@@ -53,6 +53,26 @@ Las rutas son relativas (`base: './'`), así que no hace falta configurar el nom
 6. Tapa la cámara 2 s: debe aparecer «limitado» y el contador de pérdidas debe subir. Destápala y anota si el cubo vuelve a su sitio.
 7. Abre **Registro → Copiar registro para QA** y pega el texto en la matriz.
 
+## Hito 0.1: comparar variantes en el iPhone
+
+Abre **Variante de prueba (QA)** en la portada (o usa la URL directamente). La variante queda en la URL y sobrevive a la recarga.
+
+| Prueba | URL (añadir a la de Pages) | Qué mirar |
+|---|---|---|
+| A · referencia | demo oficial https://8thwall.org/threejs-world-effects-example/ | Línea base del motor en ese iPhone. |
+| B · predeterminada | *(sin parámetros)* (suelo estimado) | ¿Se parece a A? ¿Desaparece el «se hace más pequeño»? |
+| C · escala absoluta | `?scale=absolute` | Sigue la guía (adelante/atrás). ¿Menos deriva? ¿El cubo mide ~15 cm de verdad? |
+| D · método anterior | `?place=hit` | Debería reproducir el problema del Hito 0. |
+| E · mesa | `?place=plane` | Tocar una mesa: ¿queda **sobre** la mesa? |
+| F · tamaño | `?size=0.5` (combinable) | ¿La deriva se nota menos con un objeto grande? |
+
+Mismo sitio, misma luz y suelo con textura (no liso ni brillante). En cada prueba:
+1. Coloca el cubo a 1–1,5 m de ti.
+2. Graba **20 s** acercándote y rodeándolo despacio.
+3. Tapa la cámara 2 s, destápala y contesta la pregunta «¿Sigue en su sitio?» con sinceridad.
+4. Pulsa **Detener cámara**. Así se escribe la línea `RESUMEN` en el registro.
+5. Copia el registro y anota: deriva (nada / leve / notable / se descontrola) y cambio de tamaño (sí / no).
+
 ## Licencias
 
 El SLAM usa **8th Wall Distributed Engine Binary**, de Niantic Spatial, bajo el *XR Engine License Agreement*. **No es MIT.** Se distribuye sin modificar desde `external/xr/`. Detalle en [docs/ASSET_LICENSES.md](docs/ASSET_LICENSES.md).

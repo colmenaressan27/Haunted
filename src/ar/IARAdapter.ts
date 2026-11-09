@@ -16,6 +16,8 @@ export interface IARAdapter {
   /** Pide permisos, arranca cámara y motor. Debe llamarse tras un gesto del usuario. */
   initialize(): Promise<void>
   recenter(): void
+  /** Retira el objeto colocado para recolocarlo (recuperación tras pérdida de tracking). */
+  clearPlacedObject(): void
   /** Libera cámara, GPU y listeners. Idempotente. */
   shutdown(): void
 }

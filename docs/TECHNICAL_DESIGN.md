@@ -45,7 +45,29 @@ Regla para hitos futuros: `src/game/*` solo depende de `IARAdapter` y `trackingS
    - `listeners: [{event: 'reality.trackingstatus'}]` → `trackingReducer`.
    - `onCameraStatusChange` (`requesting | hasStream | hasVideo | failed`) y `onException` → estado `failed` con mensaje.
    - `onUpdate`: retícula cada 100 ms con `hitTest(0.5, 0.5, ['FEATURE_POINT'])`; FPS y distancia cada 500 ms.
-4. Toque (pointerup con <12 px y <500 ms): `hitTest(x, y, ['FEATURE_POINT'])` → punto más cercano; si no hay, rayo contra el plano de suelo `y = 0`. El HUD muestra qué método se usó.
+4. Toque (pointerup con <12 px y <500 ms) → colocación según la variante (ver más abajo). El HUD muestra qué método se usó.
+
+### Colocación (Hito 0.1, tras QA real)
+
+En el iPhone, el método del Hito 0 (un único `FEATURE_POINT`) hacía deslizar el cubo y cambiar su escala aparente. La demo oficial de 8th Wall, que coloca sobre el plano de suelo del motor, no se encogía en el mismo iPhone. Ahora hay tres estrategias seleccionables (`src/ar/arOptions.ts`):
+
+| Variante | Método | Uso previsto |
+|---|---|---|
+| `ground` (predeterminada) | Rayo de cámara ∩ plano `y = 0` del motor | Suelo. Coherente con el modelo de escala `responsive`. |
+| `hit` | `FEATURE_POINT` más cercano | Solo para comparar (método del Hito 0). |
+| `plane` | 5 hit-tests alrededor del toque → altura robusta (mediana, inliers ±5 cm, mínimo 3) → rayo ∩ plano horizontal a esa altura | Mesas: la profundidad sale de la intersección, no de un punto ruidoso. |
+
+- Se rechaza cualquier punto a más de **2,5 u** (`MAX_PLACEMENT_DISTANCE`). Un punto a 3,9 u fue colocado en el Hito 0.
+- El rayo se calcula a mano desde `projectionMatrix` y `matrixWorld`, sin `Raycaster.setFromCamera`, porque XR8 escribe la proyección y no documenta que mantenga la inversa.
+- Escala: `?scale=absolute` activa `XrController.configure({scale: 'absolute'})` más `CoachingOverlay.pipelineModule()` (MIT). La guía pide mover el teléfono adelante y atrás hasta estimar la escala; registra `coaching-overlay.show`/`hide`.
+
+### Recuperación tras pérdida
+
+En Android, el cubo cambió de sitio al tapar y destapar la cámara. Reglas:
+- Mientras el tracking no es `normal`, el objeto se atenúa al 30 % de opacidad.
+- Al volver a `normal` tras una pérdida con objeto colocado (`shouldAskAnchorCheck`), se pregunta «¿Sigue en su sitio?» con dos opciones: confirmar o recolocar.
+- Ambas respuestas quedan en el registro: son el dato de QA sobre si el motor relocaliza.
+- Es la base del estado `RECOVERY` del juego: tras una pérdida, nada de la entidad usa anclas sin revalidarlas.
 
 ### Escala
 

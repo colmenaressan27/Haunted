@@ -41,8 +41,9 @@ export const initialTrackingState: TrackingState = {
 
 /**
  * Traduce el status del motor. La doc de 8th Wall documenta status 'NORMAL' | 'LIMITED' y
- * reason 'INITIALIZING' | 'UNDEFINED' (o 'UNSPECIFIED' según la página). Cualquier valor
- * desconocido se trata como no fiable.
+ * reason 'INITIALIZING' | 'UNDEFINED'/'UNSPECIFIED' (contradictoria). En hardware real
+ * (iPhone Safari 27.2 y Android Chrome 157, 2026-11-09) llega 'UNSPECIFIED'.
+ * Cualquier valor desconocido se trata como no fiable.
  */
 export function qualityFromEngine(status: string, reason: string): TrackingQuality {
   if (status === 'NORMAL') return 'normal'
@@ -79,4 +80,19 @@ export function trackingReducer(state: TrackingState, event: TrackingEvent): Tra
 /** True solo con SLAM real y estable. El modo compatible nunca es «fiable» espacialmente. */
 export function isTrackingReliable(state: TrackingState): boolean {
   return state.mode === 'slam' && state.quality === 'normal'
+}
+
+/**
+ * Tras recuperar el tracking, el contenido anclado puede haberse desplazado (QA Android
+ * 2026-11-09: el cubo cambia de sitio al tapar y destapar la cámara). Si hay objetos colocados,
+ * hay que preguntar al jugador si siguen en su sitio o recolocarlos. Base del estado RECOVERY.
+ */
+export function shouldAskAnchorCheck(prev: TrackingState, next: TrackingState, hasPlacedObject: boolean): boolean {
+  return (
+    hasPlacedObject &&
+    next.mode === 'slam' &&
+    prev.quality !== 'normal' &&
+    next.quality === 'normal' &&
+    next.lossCount > 0
+  )
 }

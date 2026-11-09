@@ -22,15 +22,15 @@ function makeContactShadowTexture(): THREE.Texture {
 }
 
 /** Grupo con origen en la base del cubo (y=0 = superficie donde se apoya). */
-export function createTestCube(): THREE.Group {
+export function createTestCube(size: number = TEST_CUBE_SIZE): THREE.Group {
   const group = new THREE.Group()
   group.name = 'hito0-test-cube'
 
   const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(TEST_CUBE_SIZE, TEST_CUBE_SIZE, TEST_CUBE_SIZE),
+    new THREE.BoxGeometry(size, size, size),
     new THREE.MeshStandardMaterial({color: 0xd8ac6b, roughness: 0.55, metalness: 0.05}),
   )
-  cube.position.y = TEST_CUBE_SIZE / 2
+  cube.position.y = size / 2
   group.add(cube)
 
   // Aristas para que la deriva sea fácil de ver contra el fondo real.
@@ -42,7 +42,7 @@ export function createTestCube(): THREE.Group {
   group.add(edges)
 
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(TEST_CUBE_SIZE * 2.2, TEST_CUBE_SIZE * 2.2),
+    new THREE.PlaneGeometry(size * 2.2, size * 2.2),
     new THREE.MeshBasicMaterial({map: makeContactShadowTexture(), transparent: true, depthWrite: false}),
   )
   shadow.rotation.x = -Math.PI / 2
@@ -50,6 +50,24 @@ export function createTestCube(): THREE.Group {
   group.add(shadow)
 
   return group
+}
+
+/** Atenúa el objeto mientras el tracking no es fiable: su posición puede no ser la real. */
+export function setObjectDimmed(root: THREE.Object3D, dimmed: boolean): void {
+  root.traverse((obj) => {
+    if (obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments) {
+      const materials = Array.isArray(obj.material) ? obj.material : [obj.material]
+      for (const m of materials) {
+        // Se guardan opacidad y transparencia originales (la sombra es transparente por textura).
+        const ud = m.userData as {baseOpacity?: number; baseTransparent?: boolean}
+        const baseOpacity = (ud.baseOpacity ??= m.opacity)
+        const baseTransparent = (ud.baseTransparent ??= m.transparent)
+        m.transparent = dimmed || baseTransparent
+        m.opacity = dimmed ? baseOpacity * 0.3 : baseOpacity
+        m.needsUpdate = true
+      }
+    }
+  })
 }
 
 export function addTestLights(scene: THREE.Scene): void {

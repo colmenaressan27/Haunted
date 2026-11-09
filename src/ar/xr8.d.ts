@@ -67,6 +67,8 @@ declare global {
   interface Window {
     XR8?: Xr8
     XRExtras?: XrExtrasApi
+    /** @8thwall/coaching-overlay 1.0.0: guía para escala absoluta. Eventos coaching-overlay.show/hide. */
+    CoachingOverlay?: {pipelineModule(): Xr8PipelineModule}
     THREE?: unknown
   }
 }

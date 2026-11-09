@@ -3,6 +3,7 @@ import {
   initialTrackingState,
   isTrackingReliable,
   qualityFromEngine,
+  shouldAskAnchorCheck,
   trackingReducer,
   type TrackingEvent,
   type TrackingState,
@@ -17,6 +18,11 @@ describe('qualityFromEngine', () => {
     expect(qualityFromEngine('NORMAL', 'UNDEFINED')).toBe('normal')
     expect(qualityFromEngine('LIMITED', 'INITIALIZING')).toBe('initializing')
     expect(qualityFromEngine('LIMITED', 'UNDEFINED')).toBe('limited')
+  })
+
+  it('mapea los valores observados en hardware real (reason UNSPECIFIED)', () => {
+    expect(qualityFromEngine('NORMAL', 'UNSPECIFIED')).toBe('normal')
+    expect(qualityFromEngine('LIMITED', 'UNSPECIFIED')).toBe('limited')
   })
 
   it('trata valores desconocidos como no fiables', () => {
@@ -80,6 +86,34 @@ describe('trackingReducer — SLAM', () => {
 
   it('STOPPED vuelve al estado inicial', () => {
     expect(run([...slamReady, {type: 'STOPPED'}])).toEqual(initialTrackingState)
+  })
+})
+
+describe('shouldAskAnchorCheck — recuperación tras pérdida', () => {
+  // Secuencia real del registro Android 2026-11-09: NORMAL → LIMITED → NORMAL con cubo colocado.
+  const ready: TrackingEvent[] = [{type: 'START', mode: 'slam'}, {type: 'CAMERA_READY'}]
+  const normal: TrackingEvent = {type: 'ENGINE_STATUS', status: 'NORMAL', reason: 'UNSPECIFIED'}
+  const limited: TrackingEvent = {type: 'ENGINE_STATUS', status: 'LIMITED', reason: 'UNSPECIFIED'}
+
+  it('pregunta al recuperar el tracking si había objeto colocado', () => {
+    const prev = run([...ready, normal, limited])
+    const next = trackingReducer(prev, normal)
+    expect(shouldAskAnchorCheck(prev, next, true)).toBe(true)
+  })
+
+  it('no pregunta sin objeto colocado', () => {
+    const prev = run([...ready, normal, limited])
+    expect(shouldAskAnchorCheck(prev, trackingReducer(prev, normal), false)).toBe(false)
+  })
+
+  it('no pregunta en la primera estabilización (sin pérdida previa)', () => {
+    const prev = run(ready)
+    expect(shouldAskAnchorCheck(prev, trackingReducer(prev, normal), true)).toBe(false)
+  })
+
+  it('no pregunta si sigue estable', () => {
+    const prev = run([...ready, normal, limited, normal])
+    expect(shouldAskAnchorCheck(prev, trackingReducer(prev, normal), true)).toBe(false)
   })
 })
 

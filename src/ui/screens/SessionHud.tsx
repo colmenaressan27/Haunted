@@ -1,17 +1,40 @@
 import {useState} from 'react'
-import type {ArSnapshot} from '../../ar/arStore'
+import type {PlacementStrategy} from '../../ar/arOptions'
+import type {ArSnapshot, PlacementMethod} from '../../ar/arStore'
+import {copyLogForQa} from '../qaLog'
 import {sessionHint, trackingLabel} from '../trackingCopy'
+
+const METHOD_LABELS: Record<PlacementMethod, string> = {
+  'ground-plane': 'suelo',
+  'hit-test': 'punto',
+  'surface-plane': 'plano',
+}
 
 interface Props {
   snap: ArSnapshot
+  placement: PlacementStrategy
+  variantLabel: string
   canRecenter: boolean
   canFallback: boolean
   onRecenter: () => void
   onStop: () => void
   onSwitchToFallback: () => void
+  onConfirmAnchor: () => void
+  onReplaceAnchor: () => void
 }
 
-export function SessionHud({snap, canRecenter, canFallback, onRecenter, onStop, onSwitchToFallback}: Props) {
+export function SessionHud({
+  snap,
+  placement,
+  variantLabel,
+  canRecenter,
+  canFallback,
+  onRecenter,
+  onStop,
+  onSwitchToFallback,
+  onConfirmAnchor,
+  onReplaceAnchor,
+}: Props) {
   const [showLog, setShowLog] = useState(false)
   const [copied, setCopied] = useState(false)
   const {tracking} = snap
@@ -19,17 +42,9 @@ export function SessionHud({snap, canRecenter, canFallback, onRecenter, onStop, 
   const failed = tracking.quality === 'failed'
 
   const copyLog = async () => {
-    const text = [...snap.log]
-      .reverse()
-      .map((e) => `[${(e.t / 1000).toFixed(1)}s] ${e.msg}`)
-      .join('\n')
-    try {
-      await navigator.clipboard.writeText(`${navigator.userAgent}\n${text}`)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    } catch {
-      setCopied(false)
-    }
+    const ok = await copyLogForQa(snap.log)
+    setCopied(ok)
+    if (ok) window.setTimeout(() => setCopied(false), 1500)
   }
 
   return (
@@ -38,6 +53,7 @@ export function SessionHud({snap, canRecenter, canFallback, onRecenter, onStop, 
         <span className={`mode-badge ${isSlam ? 'mode-slam' : 'mode-fallback'}`}>
           {isSlam ? 'SLAM real · 8th Wall' : 'Modo compatible · SIN anclaje espacial'}
         </span>
+        {isSlam && <span className="variant-tag">{variantLabel}</span>}
         <p className={`tracking-pill q-${tracking.quality}`} role="status" aria-live="polite">
           {trackingLabel(tracking.quality)}
         </p>
@@ -58,8 +74,22 @@ export function SessionHud({snap, canRecenter, canFallback, onRecenter, onStop, 
             </button>
           </div>
         </div>
+      ) : snap.anchorCheck ? (
+        <div className="panel anchor-panel interactive" role="alertdialog" aria-labelledby="anchor-q">
+          <p id="anchor-q" className="panel-title">
+            Se recuperó el seguimiento. ¿El cubo sigue en su sitio?
+          </p>
+          <div className="actions actions-row">
+            <button type="button" className="btn btn-secondary" onClick={onConfirmAnchor}>
+              Sí, sigue igual
+            </button>
+            <button type="button" className="btn btn-primary" onClick={onReplaceAnchor}>
+              Se movió: recolocar
+            </button>
+          </div>
+        </div>
       ) : (
-        <p className="hint">{sessionHint(snap)}</p>
+        <p className="hint">{sessionHint(snap, placement)}</p>
       )}
 
       <div className="hud-bottom interactive">
@@ -80,7 +110,7 @@ export function SessionHud({snap, canRecenter, canFallback, onRecenter, onStop, 
               </div>
               <div>
                 <dt>Colocado</dt>
-                <dd>{snap.placement ? (snap.placement.method === 'hit-test' ? 'hit-test' : 'suelo y=0') : '—'}</dd>
+                <dd>{snap.placement ? METHOD_LABELS[snap.placement.method] : '—'}</dd>
               </div>
             </>
           )}

@@ -17,31 +17,42 @@ Abrir la demo oficial https://8thwall.org/threejs-world-effects-example/ en cada
 
 ### Build HAUNTED Hito 0
 
-| # | Caso | Pasos | iPhone 13 Pro Max / Safari | Android / Chrome | Windows 11 / Chrome (solo UI) |
+Dispositivos de la sesión del 2026-11-09:
+- **iPhone**: Safari 27.2 (el usuario indica iOS 27.2). El UA congela el SO en `iPhone OS 18_7`, así que no sirve para saber la versión. Modelo por confirmar.
+- **Android prestado**: Chrome 157. El UA reducido de Chrome (`Android 10; K`) oculta la versión real y el modelo; hay que anotarlos desde Ajustes → Acerca del teléfono.
+
+| # | Caso | Pasos | iPhone / Safari 27.2 | Android (prestado) / Chrome 157 | Windows 11 / Chrome (solo UI) |
 |---|---|---|---|---|---|
-| 1 | Carga por HTTPS | Abrir URL de Pages (o LAN https) | NO PROBADO | NO PROBADO | NO PROBADO |
-| 2 | Requisitos detectados | Desplegar «Requisitos detectados»; anotar fallos | NO PROBADO | NO PROBADO | NO PROBADO (esperado: SLAM no disponible) |
-| 3 | Permisos cámara + movimiento aceptados | «Iniciar AR» → aceptar | NO PROBADO | NO PROBADO | N/A |
+| 1 | Carga por HTTPS | Abrir URL de Pages (o LAN https) | PASS (GitHub Pages) | PASS (GitHub Pages) | NO PROBADO |
+| 2 | Requisitos detectados | Desplegar «Requisitos detectados»; anotar fallos | PASS (SLAM ofrecido) | PASS (SLAM ofrecido) | NO PROBADO (esperado: SLAM no disponible) |
+| 3 | Permisos cámara + movimiento aceptados | «Iniciar AR» → aceptar | PASS (movimiento `granted`; vídeo 1,0 s tras el toque) | PASS (vídeo 1,4 s tras el toque) | N/A |
 | 4 | Permiso cámara denegado | Denegar → mensaje claro + opción compatible / volver, sin pantalla negra | NO PROBADO | NO PROBADO | NO PROBADO (modo compatible) |
 | 5 | Permiso movimiento denegado (iOS) | Denegar diálogo de movimiento → mensaje y salida | NO PROBADO | N/A | N/A |
-| 6 | Tracking inicializa | Estado pasa a «Seguimiento estable» moviendo despacio | NO PROBADO | NO PROBADO | N/A |
-| 7 | Colocar cubo en suelo | Tocar suelo; método mostrado (hit-test / suelo y=0) | NO PROBADO | NO PROBADO | N/A |
+| 6 | Tracking inicializa | Estado pasa a «Seguimiento estable» moviendo despacio | PASS (NORMAL 0,1 s después del vídeo) | PASS (NORMAL 0,2 s después del vídeo) | N/A |
+| 7 | Colocar cubo en suelo | Tocar suelo; método mostrado (hit-test / suelo y=0) | PASS (hit-test FEATURE_POINT, y≈0,03) | PASS (hit-test FEATURE_POINT, y≈0,00) | N/A |
 | 8 | Colocar cubo en mesa | Tocar mesa; ¿queda sobre la mesa o cae al plano y=0? | NO PROBADO | NO PROBADO | N/A |
-| 9 | **Puerta del hito: estabilidad** | Moverse despacio 30–60 cm y rodear medio cubo; ¿se queda en su sitio? Grabar vídeo | NO PROBADO | NO PROBADO | N/A |
-| 10 | Pérdida de tracking | Tapar cámara 2 s → aviso «limitado» y contador de pérdidas; destapar → ¿recupera y el cubo vuelve a su sitio? | NO PROBADO | NO PROBADO | N/A |
+| 9 | **Puerta del hito: estabilidad** | Moverse despacio 30–60 cm y rodear medio cubo; ¿se queda en su sitio? Grabar vídeo | **FAIL**: a veces quieto, pero se desliza al acercarse, deriva lenta con el tiempo y a veces cambia de escala (se ve más pequeño). Sin vídeo registrado | **PASS** (deriva casi imperceptible). Falta vídeo | N/A |
+| 10 | Pérdida de tracking | Tapar cámara 2 s → aviso «limitado» y contador de pérdidas; destapar → ¿recupera y el cubo vuelve a su sitio? | Detección PASS (LIMITED 3,4 s → NORMAL). Posición tras recuperar: no reportada | Detección PASS (2 pérdidas). **Posición FAIL: el cubo cambia de sitio tras destapar** | N/A |
 | 11 | Baja luz | Repetir #9 con luz tenue (no oscuridad) | NO PROBADO | NO PROBADO | N/A |
-| 12 | Recentrar | Botón Recentrar; anotar comportamiento | NO PROBADO | NO PROBADO | N/A |
+| 12 | Recentrar | Botón Recentrar; anotar comportamiento | Usado (después se recolocó el cubo); sin observaciones | Usado; sin observaciones | N/A |
 | 13 | Background/foreground | Cambiar de app 5 s y volver | NO PROBADO | NO PROBADO | N/A |
 | 14 | Rotación | Girar a horizontal y volver | NO PROBADO | NO PROBADO | N/A |
 | 15 | Detener cámara | Botón → indicador de cámara del SO se apaga | NO PROBADO | NO PROBADO | NO PROBADO |
 | 16 | Reinicio | Tras detener, «Reiniciar AR» recarga y vuelve a funcionar | NO PROBADO | NO PROBADO | N/A |
 | 17 | Modo compatible | Botón compatible → vídeo + cubo con rótulo «SIN anclaje espacial» | NO PROBADO | NO PROBADO | NO PROBADO |
-| 18 | FPS | Anotar FPS del HUD con cubo visible (30 s) | NO PROBADO | NO PROBADO | NO PROBADO |
-| 19 | Tiempo de carga | Desde abrir URL hasta cámara activa, Wi-Fi | NO PROBADO | NO PROBADO | N/A |
+| 18 | FPS | Anotar FPS del HUD con cubo visible (30 s) | NO PROBADO (percepción: peor que Android) | NO PROBADO (percepción: fluido) | NO PROBADO |
+| 19 | Tiempo de carga | Desde abrir URL hasta cámara activa, Wi-Fi | ~3 s hasta pulsar + 1,0 s hasta vídeo (desde el registro) | ~1,3 s + 1,4 s | N/A |
 | 20 | Navegador de app | Abrir el enlace desde WhatsApp/Instagram → aviso | NO PROBADO | NO PROBADO | N/A |
+
+Observaciones del motor (confirmadas en ambos dispositivos):
+- `reality.trackingstatus.reason` llega como `UNSPECIFIED`, no como `UNDEFINED`.
+- `XR8.version()` devuelve `0.0.0.0` con el binario 1.0.0 de npm. La versión fiable es la del paquete.
+- Un hit-test `FEATURE_POINT` aceptó un punto a 3,9 u de distancia (colocación #2 en iPhone). Los puntos lejanos son candidatos a mala estimación de profundidad.
 
 ### Registro de sesiones
 
 | Fecha | Dispositivo + SO + navegador (versiones) | URL | Iluminación | Resultado general | Evidencia / bugs |
 |---|---|---|---|---|---|
 | 2026-11-09 | — | — | — | Sin pruebas en hardware todavía | Solo verificaciones automáticas en PC (lint/typecheck/test/build) |
+| 2026-11-09 | iPhone (modelo por confirmar), Safari 27.2 | https://colmenaressan27.github.io/Haunted/ (commit 3de7941) | no anotada | **Puerta FAIL**: deslizamiento al acercarse, deriva lenta, cambios de escala ocasionales | Registro QA pegado en el chat; sin vídeo |
+| 2026-11-09 | Android prestado (modelo/versión por confirmar), Chrome 157 | ídem | no anotada | **Puerta PASS**; el cubo se desplaza tras perder y recuperar el tracking | Registro QA pegado en el chat; sin vídeo |

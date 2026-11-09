@@ -1,6 +1,7 @@
 // Copia, SIN MODIFICAR, los artefactos distribuidos de 8th Wall a public/external/.
 // - @8thwall/engine-binary/dist -> public/external/xr        (licencia XR Engine, Niantic Spatial; solo forma original)
 // - @8thwall/xrextras/dist      -> public/external/xrextras  (MIT)
+// - @8thwall/coaching-overlay/dist -> public/external/coaching-overlay (MIT)
 // Así el runtime se sirve desde nuestro propio origen con versión exacta fijada en package-lock.json,
 // sin depender de una CDN con versión flotante durante el stand.
 import {cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
@@ -14,6 +15,7 @@ const stampFile = join(outRoot, '.vendor.json')
 const packages = [
   {name: '@8thwall/engine-binary', target: 'xr'},
   {name: '@8thwall/xrextras', target: 'xrextras'},
+  {name: '@8thwall/coaching-overlay', target: 'coaching-overlay'}, // MIT; guía de escala absoluta
 ]
 
 const resolved = packages.map((pkg) => {

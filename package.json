@@ -22,6 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@8thwall/coaching-overlay": "1.0.0",
     "@8thwall/engine-binary": "1.0.0",
     "@8thwall/xrextras": "1.0.0",
     "react": "19.3.1",

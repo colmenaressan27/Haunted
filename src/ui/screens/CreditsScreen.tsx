@@ -2,20 +2,17 @@ const XR_LICENSE_URL = 'https://github.com/8thwall/engine/blob/main/LICENSE'
 const BASE = import.meta.env.BASE_URL
 
 interface Props {
-  engineVersion: string | null
   onBack: () => void
 }
 
-export function CreditsScreen({engineVersion, onBack}: Props) {
+export function CreditsScreen({onBack}: Props) {
   return (
     <main className="screen credits interactive">
       <h1 className="panel-title">Créditos y licencias</h1>
 
       <section className="panel">
         <h2>Seguimiento espacial</h2>
-        <p>
-          8th Wall Engine — Distributed Engine Binary 1.0.0{engineVersion ? ` (runtime ${engineVersion})` : ''}.
-        </p>
+        <p>8th Wall Engine — Distributed Engine Binary 1.0.0 (paquete npm @8thwall/engine-binary).</p>
         <p lang="en">
           This product includes the XR Engine software developed by Niantic Spatial, Inc. Copyright © 2026 Niantic
           Spatial, Inc. All rights reserved. Licensed under the{' '}
@@ -36,6 +33,10 @@ export function CreditsScreen({engineVersion, onBack}: Props) {
         <ul>
           <li>
             XRExtras 1.0.0 — MIT (<a href={`${BASE}external/xrextras/LICENSE`}>licencia</a>)
+          </li>
+          <li>
+            8th Wall Coaching Overlay 1.0.0 — MIT (
+            <a href={`${BASE}external/coaching-overlay/LICENSE`}>licencia</a>)
           </li>
           <li>three.js 0.183.2 — MIT</li>
           <li>React 19 — MIT</li>

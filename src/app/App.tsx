@@ -1,4 +1,11 @@
 import {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react'
+import {
+  PLACEMENT_LABELS,
+  SCALE_LABELS,
+  parseArOptions,
+  serializeArOptions,
+  type ArOptions,
+} from '../ar/arOptions'
 import {arStore} from '../ar/arStore'
 import {assessCapabilities, probeEnvironment} from '../ar/DeviceCapabilities'
 import type {IARAdapter} from '../ar/IARAdapter'
@@ -30,7 +37,15 @@ export function App() {
   const snap = useSyncExternalStore(arStore.subscribe, arStore.getSnapshot)
   const report = useMemo(() => assessCapabilities(probeEnvironment()), [])
   const [screen, setScreen] = useState<Screen>('intro')
+  const [options, setOptions] = useState<ArOptions>(() => parseArOptions(window.location.search))
   const adapterRef = useRef<IARAdapter | null>(null)
+
+  // La variante vive en la URL: reiniciar el SLAM recarga la página y debe conservarla.
+  const changeOptions = useCallback((next: ArOptions) => {
+    setOptions(next)
+    const url = `${window.location.pathname}${serializeArOptions(next)}${window.location.hash}`
+    window.history.replaceState(null, '', url)
+  }, [])
   // XR8 no documenta reinicios en la misma página tras stop(); por seguridad se recarga.
   const [slamUsed, setSlamUsed] = useState(false)
 
@@ -78,13 +93,23 @@ export function App() {
     arStore.dispatch({type: 'START', mode: 'slam'})
     try {
       const {EighthWallAdapter} = await loadSlamAdapter()
-      const adapter = new EighthWallAdapter(getElement<HTMLCanvasElement>('camerafeed'), arStore)
+      const adapter = new EighthWallAdapter(getElement<HTMLCanvasElement>('camerafeed'), arStore, options)
       adapterRef.current = adapter
       await adapter.initialize()
     } catch (err) {
       reportLoadFailure(err)
     }
-  }, [slamUsed])
+  }, [slamUsed, options])
+
+  const confirmAnchor = useCallback(() => {
+    arStore.patch({anchorCheck: false})
+    arStore.log('Ancla: el jugador confirma que el cubo SIGUE en su sitio tras la pérdida')
+  }, [])
+
+  const replaceAnchor = useCallback(() => {
+    arStore.log('Ancla: el jugador indica que el cubo SE DESPLAZÓ tras la pérdida')
+    adapterRef.current?.clearPlacedObject()
+  }, [])
 
   const startFallback = useCallback(async () => {
     adapterRef.current?.shutdown()
@@ -102,13 +127,19 @@ export function App() {
   }, [])
 
   if (screen === 'credits') {
-    return <CreditsScreen engineVersion={snap.engineVersion} onBack={() => setScreen('intro')} />
+    return <CreditsScreen onBack={() => setScreen('intro')} />
   }
 
   if (screen === 'session') {
     return (
       <SessionHud
         snap={snap}
+        placement={options.placement}
+        variantLabel={`${PLACEMENT_LABELS[options.placement]} · ${SCALE_LABELS[options.scale]} · ${Math.round(
+          options.cubeSize * 100,
+        )} cm`}
+        onConfirmAnchor={confirmAnchor}
+        onReplaceAnchor={replaceAnchor}
         canRecenter={snap.tracking.mode === 'slam' && snap.tracking.quality !== 'failed'}
         canFallback={report.fallbackAvailable}
         onRecenter={() => adapterRef.current?.recenter()}
@@ -121,6 +152,9 @@ export function App() {
   return (
     <IntroScreen
       report={report}
+      options={options}
+      log={snap.log}
+      onOptionsChange={changeOptions}
       slamNeedsReload={slamUsed}
       onStartSlam={() => void startSlam()}
       onStartFallback={() => void startFallback()}

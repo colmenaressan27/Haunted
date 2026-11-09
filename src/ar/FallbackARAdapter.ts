@@ -110,6 +110,10 @@ export class FallbackARAdapter implements IARAdapter {
     // Sin seguimiento espacial no hay origen que recentrar.
   }
 
+  clearPlacedObject(): void {
+    // El modo compatible no coloca objetos en el espacio.
+  }
+
   shutdown(): void {
     if (this.disposed) return
     this.disposed = true
